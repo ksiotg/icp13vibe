@@ -390,11 +390,13 @@ textarea.input { min-height: 88px; resize: vertical; }
 input[type="search"]::-webkit-search-cancel-button,
 input[type="search"]::-webkit-search-decoration { display: none; -webkit-appearance: none; }
 
+/* 좁은 화면에서 옆으로 밀 수 있게 overflow 를 쓰면 바깥으로 나간 부분이 잘려요.
+   마우스를 올리면 버튼이 1px 떠오르고 그림자가 커지니, 그만큼 안쪽 여유를 줘요. */
 .tabs {
   display: flex;
   gap: 6px;
-  margin: 0 calc(var(--lift) * -1) calc(var(--lift) * -1) 0;
-  padding: 0 var(--lift) var(--lift) 0;
+  margin: -2px calc(var(--lift) * -1 - 1px) calc(var(--lift) * -1 - 1px) -2px;
+  padding: 2px calc(var(--lift) + 1px) calc(var(--lift) + 1px) 2px;
   overflow-x: auto;
   scrollbar-width: none;
 }
