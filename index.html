@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>ROOMY</title>
+  <meta name="description" content="내 방 물건을 칸에 넣어 기록하는 나만의 인벤토리">
+  <meta name="theme-color" content="#F4EFE4">
+  <meta name="color-scheme" content="light">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="ROOMY">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="icon" href="icons/icon-192.png" type="image/png" sizes="192x192">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <!-- 글꼴: 라벨·안내문은 IBM Plex Mono + Nanum Gothic Coding, 본문은 Pretendard -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Nanum+Gothic+Coding:wght@400;700&display=swap">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <!-- 아이콘: Phosphor Icons (Regular) -->
+  <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
+  <link rel="stylesheet" href="style.css">
+
+  <script src="config.js" defer></script>
+  <script src="app.js" defer></script>
+</head>
+<body data-phase="loading">
+  <div class="app">
+    <p class="banner" id="banner" hidden>
+      <span class="led led--warn" aria-hidden="true"></span>
+      <span><b class="lbl">PREVIEW MODE</b> 이 브라우저에만 임시 저장돼요</span>
+    </p>
+
+    <header class="topbar">
+      <h1 class="nameplate">
+        <span class="nameplate-slot" aria-hidden="true"><i class="ph ph-backpack"></i></span>
+        <span>ROOMY</span>
+      </h1>
+      <div class="topbar-actions">
+        <div class="seg" role="group" aria-label="보기 방식">
+          <button type="button" class="key key--icon" data-view="grid" aria-pressed="true" aria-label="격자 보기" title="격자 보기"><i class="ph ph-squares-four" aria-hidden="true"></i></button>
+          <button type="button" class="key key--icon" data-view="list" aria-pressed="false" aria-label="목록 보기" title="목록 보기"><i class="ph ph-list" aria-hidden="true"></i></button>
+        </div>
+        <div class="menu-wrap">
+          <button type="button" class="key key--icon" id="menuBtn" aria-haspopup="menu" aria-expanded="false" aria-controls="menu" aria-label="메뉴" title="메뉴"><i class="ph ph-dots-three" aria-hidden="true"></i></button>
+          <div class="menu" id="menu" role="menu" hidden>
+            <button type="button" role="menuitem" data-menu="backup"><i class="ph ph-download-simple" aria-hidden="true"></i>백업 파일 내려받기</button>
+            <button type="button" role="menuitem" data-menu="restore"><i class="ph ph-upload-simple" aria-hidden="true"></i>백업 파일에서 불러오기</button>
+            <hr>
+            <button type="button" role="menuitem" data-menu="samples-add" data-only="preview"><i class="ph ph-sparkle" aria-hidden="true"></i>예시 물건 넣기</button>
+            <button type="button" role="menuitem" data-menu="samples-remove" data-only="preview"><i class="ph ph-broom" aria-hidden="true"></i>예시 물건 지우기</button>
+            <button type="button" role="menuitem" data-menu="lock" data-only="remote"><i class="ph ph-lock-key" aria-hidden="true"></i>이 기기 잠그기</button>
+            <p class="menu-note" id="menuNote"></p>
+          </div>
+        </div>
+        <button type="button" class="key key--dark add-btn" id="addBtn"><i class="ph ph-plus" aria-hidden="true"></i>추가</button>
+      </div>
+    </header>
+
+    <p class="summary" id="summary" aria-live="polite"></p>
+
+    <div class="controls">
+      <div class="search">
+        <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+        <input class="input" type="search" id="search" placeholder="이름이나 위치로 찾기" aria-label="이름이나 위치로 찾기" autocomplete="off" enterkeyhint="search">
+        <button type="button" class="search-clear" id="searchClear" aria-label="검색어 지우기" hidden><i class="ph ph-x" aria-hidden="true"></i></button>
+      </div>
+      <div class="tabs" role="group" aria-label="모아보기">
+        <button type="button" class="key tab" data-tab="all"><span class="led" aria-hidden="true"></span>전체</button>
+        <button type="button" class="key tab" data-tab="location"><span class="led" aria-hidden="true"></span>위치별</button>
+        <button type="button" class="key tab" data-tab="category"><span class="led" aria-hidden="true"></span>카테고리별</button>
+        <button type="button" class="key tab" data-tab="status"><span class="led" aria-hidden="true"></span>상태별</button>
+      </div>
+    </div>
+
+    <div class="layout">
+      <main class="inventory" id="inventory"></main>
+      <aside class="detail-panel" id="panel" aria-label="물건 정보"></aside>
+    </div>
+  </div>
+
+  <!-- 비밀 문구 입력 화면 -->
+  <section class="lock" aria-labelledby="lockTitle">
+    <form class="lock-card" id="lockForm" novalidate>
+      <p class="nameplate nameplate--sm">
+        <span class="nameplate-slot" aria-hidden="true"><i class="ph ph-lock-key"></i></span>
+        <span>ROOMY</span>
+      </p>
+      <label class="lbl" id="lockTitle" for="lockInput">ACCESS<span class="lbl-ko">비밀 문구</span></label>
+      <div class="pw">
+        <input class="input" type="password" id="lockInput" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go">
+        <button type="button" class="key key--icon key--flat" id="lockShow" aria-label="문구 보기" aria-pressed="false"><i class="ph ph-eye" aria-hidden="true"></i></button>
+      </div>
+      <button type="submit" class="key key--dark" id="lockSubmit">열기</button>
+      <p class="hint">↳ 이 기기에서는 다음부터 묻지 않아요.</p>
+      <p class="hint is-warn" id="lockError" role="alert" hidden></p>
+    </form>
+  </section>
+
+  <!-- 물건 설명창 (폰) -->
+  <dialog class="modal modal--sheet" id="sheet" aria-label="물건 정보">
+    <div class="modal-box sheet-box">
+      <div class="sheet-grip" data-grip aria-hidden="true"></div>
+      <button type="button" class="key key--icon key--flat sheet-close" data-close aria-label="닫기"><i class="ph ph-x" aria-hidden="true"></i></button>
+      <div class="sheet-body" id="sheetBody"></div>
+    </div>
+  </dialog>
+
+  <!-- 물건 추가 · 수정 창 -->
+  <dialog class="modal modal--sheet" id="formDialog" aria-labelledby="formTitle">
+    <form class="modal-box" id="itemForm" novalidate>
+      <header class="modal-head">
+        <h2 class="modal-title" id="formTitle"></h2>
+        <button type="button" class="key key--icon key--flat" data-close aria-label="닫기"><i class="ph ph-x" aria-hidden="true"></i></button>
+      </header>
+      <div class="modal-body" id="formBody">
+        <div class="field">
+          <label class="lbl" for="fName">NAME<span class="lbl-ko">이름</span></label>
+          <input class="input" id="fName" name="name" maxlength="100" autocomplete="off" enterkeyhint="next">
+          <p class="hint" id="nameHint" aria-live="polite"></p>
+        </div>
+        <fieldset class="field">
+          <legend class="lbl">CATEGORY<span class="lbl-ko">카테고리</span></legend>
+          <div class="chips" id="catChips"></div>
+        </fieldset>
+        <div class="field">
+          <span class="lbl">ICON<span class="lbl-ko">아이콘</span></span>
+          <div class="icon-field">
+            <span class="slot slot--mini" id="formIcon" aria-hidden="true"></span>
+            <span class="icon-state" id="iconAuto"></span>
+            <button type="button" class="key key--sm" id="iconToggle" aria-expanded="false" aria-controls="iconGrid">바꾸기</button>
+            <button type="button" class="link-btn" id="iconReset" hidden>기본으로 되돌리기</button>
+          </div>
+          <div class="icon-grid" id="iconGrid" hidden></div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="fLocation">LOCATION<span class="lbl-ko">위치</span></label>
+          <input class="input" id="fLocation" name="location" maxlength="100" autocomplete="off" placeholder="예: 책상 서랍 2칸" enterkeyhint="next">
+          <div class="chips" id="locChips"></div>
+        </div>
+        <div class="field">
+          <label class="lbl" for="fQty">QTY<span class="lbl-ko">수량</span></label>
+          <div class="stepper">
+            <button type="button" data-step="-1" aria-label="하나 빼기"><i class="ph ph-minus" aria-hidden="true"></i></button>
+            <input id="fQty" name="quantity" type="number" inputmode="numeric" min="1" max="99999" step="1">
+            <button type="button" data-step="1" aria-label="하나 더하기"><i class="ph ph-plus" aria-hidden="true"></i></button>
+          </div>
+        </div>
+        <fieldset class="field">
+          <legend class="lbl">STATUS<span class="lbl-ko">상태</span></legend>
+          <div class="chips" id="statusChips"></div>
+        </fieldset>
+        <div class="field">
+          <label class="lbl" for="fMemo">MEMO<span class="lbl-ko">메모</span></label>
+          <textarea class="input" id="fMemo" name="memo" rows="3" maxlength="1000" placeholder="색, 구매처, 특징 등"></textarea>
+        </div>
+        <p class="added" id="formAdded" hidden></p>
+      </div>
+      <p class="form-error" id="formError" role="alert" hidden></p>
+      <footer class="modal-foot">
+        <button type="button" class="link-btn" id="formDelete" hidden>삭제</button>
+        <span class="spacer"></span>
+        <button type="button" class="key" data-close>취소</button>
+        <button type="submit" class="key key--dark" id="formSave">저장</button>
+      </footer>
+    </form>
+  </dialog>
+
+  <!-- 확인 창 (삭제 · 이미 있어요 · 불러오기) -->
+  <dialog class="modal modal--ask" id="askDialog"></dialog>
+
+  <div class="toast" id="toast" popover="manual" role="status" aria-live="polite"></div>
+  <input type="file" id="restoreInput" accept=".json,application/json" hidden>
+</body>
+</html>
