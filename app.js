@@ -50,6 +50,19 @@
   const ICON_NAMES = new Map();
   for (const [, list] of ICON_GROUPS) for (const [name, ko] of list) ICON_NAMES.set(name, ko);
 
+  // 장소 아이콘을 고를 때 맨 앞에 보여줄 가구 · 공간 아이콘 (장소 이름으로 찾을 수 있게)
+  const PLACE_ICONS = ['장소·가구', [
+    ['house-line', '내 방', '방'], ['desk', '책상', ''], ['office-chair', '책상 의자', '의자'], ['bed', '침대', '침대 밑 침실'],
+    ['dresser', '서랍장', '협탁 수납장'], ['coat-hanger', '옷장', '행거 드레스룸'], ['archive', '수납장', '서랍 캐비닛'], ['books', '책장', '책꽂이'],
+    ['couch', '소파', '거실'], ['armchair', '안락의자', '의자'], ['chair', '의자', ''], ['picnic-table', '식탁', '테이블'],
+    ['television-simple', 'TV장', '거실장 티비'], ['lamp', '스탠드', '조명'], ['archive-box', '수납함', '리빙박스'], ['package', '박스', '상자 택배'],
+    ['basket', '바구니', ''], ['tray', '트레이', '선반 정리함'], ['treasure-chest', '추억 상자', '보물상자'], ['lockers', '사물함', ''],
+    ['vault', '금고', ''], ['suitcase', '캐리어', '여행가방'], ['toolbox', '공구함', ''], ['first-aid-kit', '약상자', '구급함'],
+    ['door', '현관', '문 입구'], ['sneaker', '신발장', '신발'], ['bathtub', '욕실', '욕조'], ['toilet', '화장실', ''],
+    ['oven', '주방', '부엌'], ['washing-machine', '세탁실', '다용도실 세탁기'], ['potted-plant', '베란다', '발코니 화분'], ['warehouse', '창고', ''],
+    ['garage', '차고', ''], ['stairs', '계단', '다락'], ['car', '차', '트렁크'], ['house', '집', ''],
+  ]];
+
   // 임시 저장 모드에서 넣어볼 수 있는 예시 물건
   const SAMPLES = [
     ['가위', '책상 › 서랍 2칸', '문구', 1, '자주 씀', 'scissors', ''],
@@ -152,6 +165,7 @@
       id: isUuid(raw.id) ? raw.id.toLowerCase() : uuid(),
       parent_id: isUuid(raw.parent_id) ? raw.parent_id.toLowerCase() : null,
       name,
+      icon: isIconName(raw.icon) ? raw.icon : null,
       sort: toInt(raw.sort),
     };
   }
@@ -265,7 +279,7 @@
         if (p.parent_id) throw userError('세부 위치 안에는 또 넣을 수 없어요 (2단계까지)');
       }
       if (locs.some((l) => l.parent_id === parent && sameName(l.name, name))) throw dupError();
-      const loc = cleanLoc({ id: uuid(), parent_id: parent, name, sort: row.sort });
+      const loc = cleanLoc({ id: uuid(), parent_id: parent, name, sort: row.sort, icon: row.icon });
       locs.push(loc);
       this.saveLocs();
       return { ...loc };
@@ -274,6 +288,7 @@
       const loc = this.allLocs().find((l) => l.id === id);
       if (!loc) throw notFound();
       if ('sort' in patch) loc.sort = toInt(patch.sort);
+      if ('icon' in patch) loc.icon = isIconName(patch.icon) ? patch.icon : null;
       this.saveLocs();
       return { ...loc };
     },
@@ -434,17 +449,20 @@
     },
 
     async listLocations() {
-      return (await this.run(this.table('locations').select('id,parent_id,name,sort'))).map(cleanLoc).filter(Boolean);
+      return (await this.run(this.table('locations').select('*'))).map(cleanLoc).filter(Boolean);
     },
     async addLocation(row) {
-      const data = await this.run(this.table('locations')
-        .insert({ name: cleanName(row.name, 40), parent_id: row.parent_id || null, sort: toInt(row.sort) })
-        .select('id,parent_id,name,sort'));
+      const body = { name: cleanName(row.name, 40), parent_id: row.parent_id || null, sort: toInt(row.sort) };
+      if (isIconName(row.icon)) body.icon = row.icon;
+      const data = await this.run(this.table('locations').insert(body).select('*'));
       if (!data.length) throw notFound();
       return cleanLoc(data[0]);
     },
     async patchLocation(id, patch) {
-      const data = await this.run(this.table('locations').update({ sort: toInt(patch.sort) }).eq('id', id).select('id'));
+      const body = {};
+      if ('sort' in patch) body.sort = toInt(patch.sort);
+      if ('icon' in patch) body.icon = isIconName(patch.icon) ? patch.icon : null;
+      const data = await this.run(this.table('locations').update(body).eq('id', id).select('id'));
       if (!data.length) throw notFound();
     },
     async renameLocation(id, name) { await this.run(this.client.rpc('rename_location', { loc: id, new_name: name })); },
@@ -454,12 +472,12 @@
     async deleteLocation(id) { await this.run(this.client.rpc('delete_location', { loc: id })); },
 
     async listCategories() {
-      return (await this.run(this.table('categories').select('id,name,icon,sort'))).map(cleanCat).filter(Boolean);
+      return (await this.run(this.table('categories').select('*'))).map(cleanCat).filter(Boolean);
     },
     async addCategory(row) {
       const data = await this.run(this.table('categories')
         .insert({ name: cleanName(row.name, 30), icon: isIconName(row.icon) ? row.icon : 'package', sort: toInt(row.sort) })
-        .select('id,name,icon,sort'));
+        .select('*'));
       if (!data.length) throw notFound();
       return cleanCat(data[0]);
     },
@@ -547,6 +565,7 @@
   const findCategory = (name) => findNamed(state.categories, name);
   const categoryIcon = (name) => findCategory(name)?.icon || 'package';
   const iconOf = (item) => (isIconName(item.icon) ? item.icon : categoryIcon(item.category));
+  const locIcon = (item) => { const r = resolve(item); return r.spot?.icon || r.place?.icon || null; };
 
   // 물건에 적힌 위치 글자 → 장소 목록의 큰 장소 · 세부 위치
   function resolve(item) {
@@ -763,7 +782,7 @@
         const list = inPlace.filter((i) => res.get(i.id).spot === spot).sort(byName);
         body += `<div class="pocket">
           <div class="pocket-row">
-            <span class="pocket-head"><span class="row-arrow" aria-hidden="true">↳</span><span class="bag-text">${esc(spot.name)}</span><span class="bag-rule" aria-hidden="true"></span><span class="bag-count">${list.length}</span></span>
+            <span class="pocket-head"><span class="row-arrow" aria-hidden="true">↳</span>${spot.icon ? icon(spot.icon) : ''}<span class="bag-text">${esc(spot.name)}</span><span class="bag-rule" aria-hidden="true"></span><span class="bag-count">${list.length}</span></span>
             ${moreButton('data-manage-spot', spot.id, spot.name)}
           </div>
           ${bodyView(list, { placeId: place.id, spotId: spot.id, where: pathOf(spot) }, true, 'location')}
@@ -773,7 +792,7 @@
       html += bagShell({
         by: 'location',
         key: place.id,
-        title: `<span class="bag-text">${esc(place.name)}</span>`,
+        title: `${place.icon ? icon(place.icon) : ''}<span class="bag-text">${esc(place.name)}</span>`,
         count: inPlace.length,
         collapsible: true,
         manage: moreButton('data-manage-place', place.id, place.name),
@@ -835,17 +854,19 @@
       for (const s of spotsOf(p.id)) order.push(`${p.name}${PATH_SEP}${s.name}`);
     }
     const groups = new Map();
+    const icons = new Map();
     for (const it of items) {
       const r = resolve(it);
       const key = r.place ? pathOf(r.spot || r.place) : it.location;
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key).push(it);
+      icons.set(key, r.spot?.icon || r.place?.icon || null);
     }
     const rank = (k) => (k === '' ? 1e9 : order.includes(k) ? order.indexOf(k) : 1e6);
     return [...groups.entries()].sort((a, b) => rank(a[0]) - rank(b[0]) || byKo(a[0], b[0])).map(([path, list]) => bagShell({
       by: 'location',
       key: `search:${path}`,
-      title: `<span class="bag-text">${esc(path || NO_LOCATION)}</span>`,
+      title: `${icons.get(path) ? icon(icons.get(path)) : ''}<span class="bag-text">${esc(path || NO_LOCATION)}</span>`,
       count: list.length,
       unset: !path,
       body: bodyView(list.sort((a, b) => byKo(a.name, b.name)), {}, false, 'location'),
@@ -918,7 +939,7 @@
         </div>
         <dl class="spec">
           <div><dt>CATEGORY</dt><dd>${icon(categoryIcon(it.category))}${esc(it.category)}</dd></div>
-          <div><dt>LOCATION</dt><dd>${it.location ? esc(it.location) : `<span class="unset">${NO_LOCATION}</span>`}</dd></div>
+          <div><dt>LOCATION</dt><dd>${it.location ? `${locIcon(it) ? icon(locIcon(it)) : ''}${esc(it.location)}` : `<span class="unset">${NO_LOCATION}</span>`}</dd></div>
           <div class="is-stack"><dt>STATUS</dt><dd><div class="status-pick" role="group" aria-label="상태 바꾸기">${picks}</div></dd></div>
           ${it.memo ? `<div><dt>MEMO</dt><dd class="memo">${esc(it.memo)}</dd></div>` : ''}
           <div><dt>ADDED</dt><dd class="mono">${ymd(it.created_at)}</dd></div>
@@ -1076,7 +1097,8 @@
     if (!name) return;
     const same = findPlace(name);
     if (same) { toast(`‘${same.name}’은(는) 이미 있어요`); return; }
-    if (await runOp(() => store.addLocation({ name, parent_id: null, sort: nextSort(places()) }), `‘${name}’ 장소를 만들었어요`)) {
+    const picked = await pickIcon(null, `‘${name}’의 아이콘을 골라주세요. (없어도 돼요)`, { place: true, keepText: '아이콘 없이 만들기' });
+    if (await runOp(() => store.addLocation({ name, parent_id: null, sort: nextSort(places()), icon: picked || null }), `‘${name}’ 장소를 만들었어요`)) {
       if (state.tab !== 'location') setTab('location');
     }
   }
@@ -1133,7 +1155,8 @@
       html: `<p class="ask-title">${esc(place.name)}</p><p class="quote">↳ 물건 ${n}개 · 세부 위치 ${spots.length}개</p>`,
       grid: true,
       buttons: [
-        { text: '이름 바꾸기', value: 'rename' },
+        { text: '이름 바꾸기', value: 'rename', half: true },
+        { text: '아이콘 바꾸기', value: 'icon', half: true },
         { text: '세부 위치 추가', value: 'spot' },
         { text: '↑ 위로', value: 'up', half: true },
         { text: '↓ 아래로', value: 'down', half: true },
@@ -1145,6 +1168,8 @@
     if (choice === 'rename') {
       const name = await askText({ en: 'RENAME', ko: '이름 바꾸기', value: place.name, max: 40, note: n ? `안에 있는 물건 ${n}개의 위치도 같이 바뀌어요.` : '' });
       if (name && name !== place.name) await runOp(() => store.renameLocation(id, name), '이름을 바꿨어요');
+    } else if (choice === 'icon') {
+      await changeLocIcon(place);
     } else if (choice === 'spot') {
       await newSpot(id);
     } else if (choice === 'up' || choice === 'down') {
@@ -1179,7 +1204,8 @@
       html: `<p class="ask-title">${esc(path)}</p><p class="quote">↳ 물건 ${n}개</p>`,
       grid: true,
       buttons: [
-        { text: '이름 바꾸기', value: 'rename' },
+        { text: '이름 바꾸기', value: 'rename', half: true },
+        { text: '아이콘 바꾸기', value: 'icon', half: true },
         { text: '↑ 위로', value: 'up', half: true },
         { text: '↓ 아래로', value: 'down', half: true },
         ...(others.length ? [{ text: '다른 장소로 옮기기', value: 'move' }] : []),
@@ -1191,6 +1217,8 @@
     if (choice === 'rename') {
       const name = await askText({ en: 'RENAME', ko: '이름 바꾸기', value: spot.name, max: 40, note: n ? `안에 있는 물건 ${n}개의 위치도 같이 바뀌어요.` : '' });
       if (name && name !== spot.name) await runOp(() => store.renameLocation(id, name), '이름을 바꿨어요');
+    } else if (choice === 'icon') {
+      await changeLocIcon(spot);
     } else if (choice === 'up' || choice === 'down') {
       await reorder(spotsOf(parent.id), id, choice === 'up' ? -1 : 1, (x, p) => store.patchLocation(x, p));
     } else if (choice === 'move') {
@@ -1208,6 +1236,12 @@
       });
       if (ok === 'yes') await runOp(() => store.deleteLocation(id), '세부 위치를 지웠어요');
     }
+  }
+
+  async function changeLocIcon(loc) {
+    const picked = await pickIcon(loc.icon, `‘${pathOf(loc)}’의 아이콘을 골라주세요.`, { place: true, removable: Boolean(loc.icon) });
+    if (picked === null || picked === loc.icon) return;
+    await runOp(() => store.patchLocation(loc.id, { icon: picked || null }), picked ? '아이콘을 바꿨어요' : '아이콘을 뺐어요');
   }
 
   async function manageCategory(id) {
@@ -1251,22 +1285,29 @@
 
   /* ── 아이콘 고르기 (찾기 포함) ─────────────────────── */
 
-  function iconPickerHTML(current, prefix = '') {
+  function iconPickerHTML(current, prefix = '', place = false) {
+    const hint = place ? '아이콘 찾기 (예: 옷장, 책상, 신발장)' : '아이콘 찾기 (예: 양말, 컵, 화분)';
     return `<div class="icon-picker">
-      <div class="search search--sm">${icon('magnifying-glass')}<input class="input" data-icon-search placeholder="아이콘 찾기 (예: 양말, 컵, 화분)" aria-label="아이콘 찾기" autocomplete="off" enterkeyhint="search"></div>
-      <div class="icon-results" data-icon-results data-current="${esc(current || '')}" data-prefix="${esc(prefix)}">${iconResultsHTML('', current, prefix)}</div>
+      <div class="search search--sm">${icon('magnifying-glass')}<input class="input" data-icon-search placeholder="${hint}" aria-label="아이콘 찾기" autocomplete="off" enterkeyhint="search"></div>
+      <div class="icon-results" data-icon-results data-current="${esc(current || '')}" data-prefix="${esc(prefix)}"${place ? ' data-place="1"' : ''}>${iconResultsHTML('', current, prefix, place)}</div>
     </div>`;
   }
 
-  function iconResultsHTML(query, current, prefix) {
+  function iconResultsHTML(query, current, prefix, place = false) {
+    const groups = place ? [PLACE_ICONS, ...ICON_GROUPS] : ICON_GROUPS;
     const q = norm(query);
     const button = (name, text, named) => `<button type="button" class="icon-opt${name === current ? ' is-on' : ''}${named ? ' icon-opt--named' : ''}" data-icon="${name}"${prefix ? ` data-value="${prefix}${name}"` : ''} title="${esc(text)}" aria-label="${esc(text)}">${icon(name)}${named ? `<span>${esc(text)}</span>` : ''}</button>`;
     if (!q) {
-      return ICON_GROUPS.map(([group, list]) => `<p class="icon-group">${esc(group)}</p>${list.map(([name, ko]) => button(name, ko, false)).join('')}`).join('');
+      return groups.map(([group, list]) => `<p class="icon-group">${esc(group)}</p>${list.map(([name, ko]) => button(name, ko, false)).join('')}`).join('');
     }
     const hits = [];
-    for (const [, list] of ICON_GROUPS) {
-      for (const [name, ko, keys = ''] of list) if (norm(`${ko} ${keys} ${name}`).includes(q)) hits.push(button(name, ko, true));
+    const seen = new Set();
+    for (const [, list] of groups) {
+      for (const [name, ko, keys = ''] of list) {
+        if (seen.has(name) || !norm(`${ko} ${keys} ${name}`).includes(q)) continue;
+        seen.add(name);
+        hits.push(button(name, ko, true));
+      }
     }
     const english = /^[a-z0-9-]+$/.test(q) ? OTHER_ICONS.filter((n) => n.includes(q)).slice(0, 60).map((n) => button(n, n, true)) : [];
     if (!hits.length && !english.length) return `<p class="icon-empty">‘${esc(query.trim())}’ 아이콘이 없어요. 다른 말이나 영어로 찾아보세요. (예: cup, sock)</p>`;
@@ -1277,16 +1318,16 @@
     const input = e.target.closest('[data-icon-search]');
     if (!input) return;
     const results = input.closest('.icon-picker').querySelector('[data-icon-results]');
-    results.innerHTML = iconResultsHTML(input.value, results.dataset.current, results.dataset.prefix);
+    results.innerHTML = iconResultsHTML(input.value, results.dataset.current, results.dataset.prefix, results.dataset.place === '1');
   }
 
-  // 확인 창에서 아이콘 하나 고르기 → 이름 (안 고르면 null)
-  async function pickIcon(current, note) {
+  // 확인 창에서 아이콘 하나 고르기 → 이름 ('' = 아이콘 빼기, null = 안 고름)
+  async function pickIcon(current, note, { place = false, removable = false, keepText = '그대로 두기' } = {}) {
     const v = await ask({
       en: 'ICON',
       ko: '아이콘 고르기',
-      html: `${note ? `<p>${esc(note)}</p>` : ''}${iconPickerHTML(current, 'icon:')}`,
-      buttons: [{ text: '그대로 두기', value: 'keep' }],
+      html: `${note ? `<p>${esc(note)}</p>` : ''}${iconPickerHTML(current, 'icon:', place)}`,
+      buttons: [...(removable ? [{ text: '아이콘 빼기', value: 'icon:' }] : []), { text: keepText, value: 'keep' }],
     });
     return v && v.startsWith('icon:') ? v.slice(5) : null;
   }
@@ -1464,7 +1505,7 @@
     const place = locById(form.placeId);
     els.placeChips.innerHTML = [
       `<button type="button" class="chip" data-pick-place="" aria-pressed="${!place}">${NO_LOCATION}</button>`,
-      ...places().map((p) => `<button type="button" class="chip" data-pick-place="${p.id}" aria-pressed="${p.id === form.placeId}">${esc(p.name)}</button>`),
+      ...places().map((p) => `<button type="button" class="chip" data-pick-place="${p.id}" aria-pressed="${p.id === form.placeId}">${p.icon ? icon(p.icon) : ''}<span>${esc(p.name)}</span></button>`),
       `<button type="button" class="chip chip--add" data-inline="place">${icon('plus')}<span>새 장소</span></button>`,
     ].join('');
     els.spotField.hidden = !place;
@@ -1472,7 +1513,7 @@
     els.spotLabel.textContent = `↳ ${place.name} 안 어디에?`;
     els.spotChips.innerHTML = [
       `<button type="button" class="chip" data-pick-spot="" aria-pressed="${!form.spotId}">${esc(place.name)}에 바로</button>`,
-      ...spotsOf(place.id).map((s) => `<button type="button" class="chip" data-pick-spot="${s.id}" aria-pressed="${s.id === form.spotId}">${esc(s.name)}</button>`),
+      ...spotsOf(place.id).map((s) => `<button type="button" class="chip" data-pick-spot="${s.id}" aria-pressed="${s.id === form.spotId}">${s.icon ? icon(s.icon) : ''}<span>${esc(s.name)}</span></button>`),
       `<button type="button" class="chip chip--add" data-inline="spot">${icon('plus')}<span>새 세부 위치</span></button>`,
     ].join('');
   }
@@ -1870,7 +1911,7 @@
       count: state.items.length,
       items: state.items.map((i) => toRow(i, true)),
       // 장소 · 카테고리는 이름으로 적어둬요 (다른 곳에 불러와도 맞춰지게)
-      locations: state.locations.map((l) => ({ name: l.name, parent: locById(l.parent_id)?.name || null, sort: l.sort })),
+      locations: state.locations.map((l) => ({ name: l.name, parent: locById(l.parent_id)?.name || null, icon: l.icon, sort: l.sort })),
       categories: state.categories.map((c) => ({ name: c.name, icon: c.icon, sort: c.sort })),
     };
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
@@ -1928,12 +1969,12 @@
       }
       for (const l of regLocs.filter((x) => x && !x.parent)) {
         const name = cleanName(l.name, 40);
-        if (name && !findPlace(name)) state.locations.push(await store.addLocation({ name, parent_id: null, sort: toInt(l.sort) || nextSort(places()) }));
+        if (name && !findPlace(name)) state.locations.push(await store.addLocation({ name, parent_id: null, icon: l.icon, sort: toInt(l.sort) || nextSort(places()) }));
       }
       for (const l of regLocs.filter((x) => x && x.parent)) {
         const parent = findPlace(cleanName(l.parent, 40));
         const name = cleanName(l.name, 40);
-        if (parent && name && !findSpot(parent.id, name)) state.locations.push(await store.addLocation({ name, parent_id: parent.id, sort: toInt(l.sort) || nextSort(spotsOf(parent.id)) }));
+        if (parent && name && !findSpot(parent.id, name)) state.locations.push(await store.addLocation({ name, parent_id: parent.id, icon: l.icon, sort: toInt(l.sort) || nextSort(spotsOf(parent.id)) }));
       }
       const saved = rows.length ? await store.insertMany(rows) : [];
       await refresh();
@@ -1985,7 +2026,7 @@
     const code = String(err?.code || '');
     if (/failed to fetch|networkerror|load failed|network request failed/i.test(msg)) return 'network';
     if (/api key|apikey|jwt/i.test(msg)) return 'apikey';
-    if (['PGRST205', 'PGRST202', '42P01', '42883'].includes(code) && /location|categor/i.test(msg)) return 'upgrade';
+    if (['PGRST205', 'PGRST202', 'PGRST204', '42P01', '42703', '42883'].includes(code) && /location|categor/i.test(msg)) return 'upgrade';
     if (['PGRST202', 'PGRST205', '42P01', '42883', 'PGRST106'].includes(code) || /schema cache|does not exist/i.test(msg)) return 'setup';
     return 'unknown';
   }

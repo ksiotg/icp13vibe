@@ -1415,6 +1415,7 @@ body[data-phase="locked"] .app { display: none; }
 }
 
 .pocket-head .row-arrow { font-size: 13px; }
+.pocket-head .ph { flex: none; font-size: 16px; }
 
 .pocket-head .bag-rule { border-top-width: 1px; border-top-style: dashed; }
 

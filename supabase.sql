@@ -118,16 +118,23 @@ on conflict do nothing;
 
 
 -- 4) 장소 목록 (큰 장소 › 세부 위치) ─────────────────────────────
---    parent_id 가 비어 있으면 큰 장소, 있으면 그 장소 안의 세부 위치.
+--    parent_id 가 비어 있으면 큰 장소, 있으면 그 장소 안의 세부 위치. 아이콘은 골라도 되고 비워도 돼요.
 
 create table if not exists public.locations (
   id          uuid primary key default gen_random_uuid(),
   parent_id   uuid references public.locations (id) on delete cascade,
   name        text not null
               check (char_length(btrim(name)) between 1 and 40 and position('›' in name) = 0),
+  icon        text,
   sort        integer not null default 0,
   created_at  timestamptz not null default now()
 );
+
+-- 장소 아이콘 (없어도 돼요). 예전에 만든 표에도 칸을 더해요
+alter table public.locations add column if not exists icon text;
+alter table public.locations drop constraint if exists locations_icon_check;
+alter table public.locations add constraint locations_icon_check
+  check (icon is null or icon ~ '^[a-z0-9-]{1,40}$');
 create unique index if not exists locations_name_key
   on public.locations (coalesce(parent_id, '00000000-0000-0000-0000-000000000000'::uuid), lower(btrim(name)));
 create index if not exists locations_parent_idx on public.locations (parent_id);
@@ -426,6 +433,6 @@ grant select, insert, update, delete on table public.locations to anon, authenti
 -- 끝 ─────────────────────────────────────────────────────────────
 select case
   when exists (select 1 from private.room_secret)
-    then 'ROOMY 설정 완료! (장소 · 카테고리 업데이트 포함) 비밀 문구도 이미 정해져 있어요.'
+    then 'ROOMY 설정 완료! (장소 · 카테고리 · 장소 아이콘 포함) 비밀 문구도 이미 정해져 있어요.'
   else '1단계 완료! 이제 2단계: 비밀문구.sql 한 줄을 실행해 주세요.'
 end as "결과";
