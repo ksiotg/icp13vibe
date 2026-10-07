@@ -10,6 +10,7 @@
   --card: #FFFFFF;    /* 칸 · 카드 · 버튼 바탕 */
   --lime: #C6E35A;    /* 포인트 ①: 켜짐 · 자주 씀 */
   --mustard: #E0B23C; /* 포인트 ②: 주의 · 처분 예정 */
+  --olive: #5B6930;   /* 추가 버튼 (라임과 같은 계열의 짙은 색) */
 
   --ink-2: rgb(52 51 48 / 0.72); /* 보조 글자 */
   --ink-3: rgb(52 51 48 / 0.4);  /* 점선 · 흐린 표시 */
@@ -160,6 +161,7 @@ legend { padding: 0; }
 }
 
 .key--dark { background: var(--ink); color: var(--paper); }
+.key--add { background: var(--olive); color: var(--paper); }
 
 .key--icon { width: 44px; padding: 0; }
 .key--icon .ph { font-size: 20px; }
@@ -481,12 +483,6 @@ input[type="search"]::-webkit-search-decoration { display: none; -webkit-appeara
 }
 
 .bag.is-collapsed .bag-head { margin-bottom: 0; }
-
-.bag-dash {
-  flex: none;
-  width: 10px;
-  border-top: var(--line) solid var(--ink);
-}
 
 .bag-title {
   display: flex;

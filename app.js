@@ -693,11 +693,10 @@
   }
 
   // 가방 한 개: 제목 줄(+ ⋯ 관리 버튼) + 내용
+  // 어떤 탭인지는 위쪽 탭 버튼이 알려주니, 가방마다 LOCATION · CATEGORY 같은 말은 붙이지 않아요
   function bagShell({ by, key, title, count, body, collapsible = false, manage = '', unset = false }) {
     const collapsed = collapsible && isCollapsed(by, key);
     const head = `
-      ${label(GROUP_LABELS[by])}
-      <span class="bag-dash" aria-hidden="true"></span>
       <span class="bag-title${unset ? ' is-unset' : ''}">${title}</span>
       <span class="bag-rule" aria-hidden="true"></span>
       <span class="bag-count">${count}</span>

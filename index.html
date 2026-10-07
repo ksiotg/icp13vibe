@@ -23,11 +23,11 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
   <!-- 아이콘: Phosphor Icons (Regular) -->
   <link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/regular/style.css">
-  <link rel="stylesheet" href="style.css?v=4">
+  <link rel="stylesheet" href="style.css?v=6">
 
   <script src="config.js?v=2" defer></script>
   <script src="icons.js?v=2" defer></script>
-  <script src="app.js?v=3" defer></script>
+  <script src="app.js?v=4" defer></script>
 </head>
 <body data-phase="loading">
   <div class="app">
@@ -58,7 +58,7 @@
             <p class="menu-note" id="menuNote"></p>
           </div>
         </div>
-        <button type="button" class="key key--dark add-btn" id="addBtn"><i class="ph ph-plus" aria-hidden="true"></i>추가</button>
+        <button type="button" class="key key--add add-btn" id="addBtn"><i class="ph ph-plus" aria-hidden="true"></i>추가</button>
       </div>
     </header>
 
@@ -129,7 +129,7 @@
           <div class="chips" id="catChips"></div>
           <div class="inline-add" id="categoryAdd" hidden>
             <input class="input" maxlength="30" placeholder="새 카테고리 이름 (예: 주방용품)" autocomplete="off" enterkeyhint="done" aria-label="새 카테고리 이름">
-            <button type="button" class="key key--sm key--dark" data-inline-ok="category">추가</button>
+            <button type="button" class="key key--sm key--add" data-inline-ok="category">추가</button>
             <button type="button" class="key key--sm" data-inline-cancel="category">취소</button>
           </div>
         </div>
@@ -148,7 +148,7 @@
           <div class="chips" id="placeChips"></div>
           <div class="inline-add" id="placeAdd" hidden>
             <input class="input" maxlength="40" placeholder="새 장소 이름 (예: 책상, 옷장)" autocomplete="off" enterkeyhint="done" aria-label="새 장소 이름">
-            <button type="button" class="key key--sm key--dark" data-inline-ok="place">추가</button>
+            <button type="button" class="key key--sm key--add" data-inline-ok="place">추가</button>
             <button type="button" class="key key--sm" data-inline-cancel="place">취소</button>
           </div>
           <div class="sub-field" id="spotField" hidden>
@@ -156,7 +156,7 @@
             <div class="chips" id="spotChips"></div>
             <div class="inline-add" id="spotAdd" hidden>
               <input class="input" maxlength="40" placeholder="세부 위치 이름 (예: 서랍 1칸)" autocomplete="off" enterkeyhint="done" aria-label="새 세부 위치 이름">
-              <button type="button" class="key key--sm key--dark" data-inline-ok="spot">추가</button>
+              <button type="button" class="key key--sm key--add" data-inline-ok="spot">추가</button>
               <button type="button" class="key key--sm" data-inline-cancel="spot">취소</button>
             </div>
           </div>
