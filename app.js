@@ -1272,6 +1272,43 @@
       render();
     } catch (err) {
       fail(failure(err));
+      return;
+    }
+    if (state.mode === 'remote') offerPreviewMove();
+  }
+
+  // 연결하기 전에 임시 저장 모드에서 넣은 물건이 이 브라우저에 남아 있으면 옮길지 물어봐요
+  async function offerPreviewMove() {
+    const raw = ls.get(SAVED.items, []);
+    if (!Array.isArray(raw) || !raw.length) return;
+    const sampleIds = new Set(SAMPLES.map((x) => x.id));
+    const have = new Set(state.items.map((i) => i.id));
+    const rows = raw.map(clean).filter((i) => i && !sampleIds.has(i.id) && !have.has(i.id));
+    if (!rows.length) { ls.del(SAVED.items); return; } // 예시 물건이나 이미 옮긴 것뿐
+    const names = rows.slice(0, 3).map((i) => esc(i.name)).join(', ') + (rows.length > 3 ? ' …' : '');
+    const answer = await ask({
+      en: 'MOVE ITEMS',
+      ko: '물건 옮기기',
+      html: `<p>연결하기 전에 이 브라우저에 임시로 저장해 둔 물건 ${rows.length}개가 있어요. Supabase로 옮길까요?</p><p class="quote">↳ ${names}</p>`,
+      buttons: [
+        { text: `${rows.length}개 옮기기`, value: 'move', dark: true },
+        { text: '옮기지 않고 지우기', value: 'drop' },
+        { text: '나중에', value: 'later' },
+      ],
+    });
+    if (answer === 'move') {
+      try {
+        const saved = await store.insertMany(rows);
+        state.items.push(...saved);
+        ls.del(SAVED.items);
+        render();
+        toast(`${saved.length}개를 옮겼어요`);
+      } catch (err) {
+        handleError(err);
+      }
+    } else if (answer === 'drop') {
+      ls.del(SAVED.items);
+      toast('임시로 저장한 물건을 지웠어요');
     }
   }
 

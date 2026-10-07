@@ -7,5 +7,5 @@
  * 여기 넣는 주소와 열쇠는 공개돼도 괜찮은 정보예요.
  * 진짜 자물쇠는 Supabase에 따로 정하는 '비밀 문구'예요. 비밀 문구는 여기 적지 마세요!
  */
-const SUPABASE_URL = "여기에-주소를-붙여넣기";
-const SUPABASE_KEY = "여기에-열쇠를-붙여넣기";
+const SUPABASE_URL = "https://huouatkretzhpmoqwyoj.supabase.co";
+const SUPABASE_KEY = "sb_publishable_kB-gnFPNHo0f6o2czeTFMw_IeB3PS3W";

@@ -2,19 +2,18 @@
 --  ROOMY · Supabase 설정 명령문
 -- ════════════════════════════════════════════════════════════════════
 --  사용법 (자세한 건 설정안내.md 3단계)
---   1. 이 파일 내용을 전부 복사해서 Supabase > SQL Editor 에 붙여넣기
---   2. 아래 ▼ 표시된 줄에서 '여기에-비밀-문구' 를 내 비밀 문구로 바꾸기
---   3. Run 누르기 → 맨 아래에 "ROOMY 설정 완료" 가 나오면 끝
+--   1단계. 이 파일 내용을 전부 복사해서 Supabase > SQL Editor 에 붙여넣고 Run.
+--          고칠 곳은 없어요. 맨 아래에 "1단계 완료!" 가 나오면 성공.
+--   2단계. '비밀문구.sql' 의 한 줄을 붙여넣고, 따옴표 안을 내 비밀 문구로 바꿔서 Run.
 --
---  · 여러 번 실행해도 괜찮아요. 이미 넣은 물건은 지워지지 않아요.
---  · 비밀 문구를 바꾸고 싶을 때도, 새 문구로 이 파일을 다시 실행하면 돼요.
---  · 바꾼 비밀 문구는 이 파일(GitHub)에 저장하지 마세요. Supabase 화면에서만 바꾸세요.
+--  · 여러 번 실행해도 괜찮아요. 이미 넣은 물건과 비밀 문구는 그대로 남아요.
 -- ════════════════════════════════════════════════════════════════════
 
 
 -- 1) 비밀 문구 보관함 ───────────────────────────────────────────────
 --    앱에서는 절대 볼 수 없는 곳(private)에, 문구 자체가 아니라
 --    문구를 알아볼 수 없게 바꾼 값(해시)만 보관해요.
+--    문구는 2단계(비밀문구.sql)에서 정해요.
 
 create schema if not exists private;
 revoke all on schema private from public;
@@ -26,25 +25,32 @@ create table if not exists private.room_secret (
 alter table private.room_secret enable row level security;
 revoke all on table private.room_secret from public, anon, authenticated;
 
-do $$
+-- 비밀 문구를 정하는 함수: Supabase 화면(SQL Editor)에서만 쓸 수 있어요.
+-- 앱이나 인터넷에서는 부를 수 없어요.
+create or replace function private.set_room_key(phrase text)
+returns text
+language plpgsql
+set search_path = ''
+as $$
 declare
-  -- ▼▼▼ 여기 따옴표 안을 내 비밀 문구로 바꾸세요 (영어 소문자·숫자로 8자 이상 추천) ▼▼▼
-  phrase text := '여기에-비밀-문구';
-  -- ▲▲▲
+  p text := btrim(coalesce(phrase, ''));
 begin
-  phrase := btrim(phrase);
-  if phrase = '' or phrase = '여기에-비밀-문구' then
-    raise exception '비밀 문구를 먼저 정해주세요 → ▼ 표시된 줄의 따옴표 안을 내 문구로 바꾼 뒤 다시 Run 하세요.';
+  if p = '' or md5(p) = 'b1bc07cc325b9e9349189440888e714f' then
+    raise exception '따옴표 안을 내 비밀 문구로 바꾼 뒤 다시 Run 하세요.';
   end if;
-  if char_length(phrase) < 4 then
+  if char_length(p) < 4 then
     raise exception '비밀 문구가 너무 짧아요. 4자 이상(8자 이상 추천)으로 정해주세요.';
   end if;
 
   insert into private.room_secret (id, key_hash)
-  values (1, encode(sha256(convert_to(normalize(phrase, NFC), 'UTF8')), 'hex'))
+  values (1, encode(sha256(convert_to(normalize(p, NFC), 'UTF8')), 'hex'))
   on conflict (id) do update set key_hash = excluded.key_hash;
+
+  return '비밀 문구를 저장했어요! 이제 앱에서 이 문구로 열 수 있어요.';
 end;
 $$;
+
+revoke all on function private.set_room_key(text) from public, anon, authenticated;
 
 
 -- 2) 물건 표 ─────────────────────────────────────────────────────
@@ -128,4 +134,8 @@ grant select, insert, update, delete on table public.items to anon, authenticate
 
 
 -- 끝 ─────────────────────────────────────────────────────────────
-select 'ROOMY 설정 완료! 이제 앱에서 비밀 문구로 열 수 있어요.' as "결과";
+select case
+  when exists (select 1 from private.room_secret)
+    then 'ROOMY 설정 완료! 비밀 문구도 이미 정해져 있어요.'
+  else '1단계 완료! 이제 2단계: 비밀문구.sql 한 줄을 실행해 주세요.'
+end as "결과";
